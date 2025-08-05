@@ -9,8 +9,9 @@ use bevy::{
     render::mesh::{Indices, PrimitiveTopology},
 };
 
-use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
 use rand::random_bool;
+
+use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
 
 fn main() {
     App::new()
@@ -35,12 +36,12 @@ fn voxel_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let grass_texture: Handle<Image> = asset_server.load("grass.png");
+    let grass_texture: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
     for i in 0..CHUNK_SIZE {
         for j in 0..CHUNK_SIZE {
             for k in 0..CHUNK_SIZE {
-                if random_bool(0.8) {
+                if random_bool(0.3) {
                     chunk.voxels[i][j][k] = Voxel::Empty;
                 }
             }
@@ -68,7 +69,8 @@ fn voxel_setup(
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct _FooBar;
 
-const CHUNK_SIZE: usize = 8;
+const CHUNK_SIZE: usize = 16;
+const ATLAS_SIZE: usize = 9;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Voxel {
@@ -203,8 +205,8 @@ fn build_mesh(mesh: &[QuadFace]) -> Mesh {
             | FaceDirection::Fro => (
                 [
                     [x     , y     , z + 1.],
-                    [x + 1., y     , z + 1.],
                     [x     , y + 1., z + 1.],
+                    [x + 1., y     , z + 1.],
                     [x + 1., y + 1., z + 1.],
                 ],
                 [0., 0., 1.],
@@ -212,18 +214,52 @@ fn build_mesh(mesh: &[QuadFace]) -> Mesh {
             | FaceDirection::Bac => (
                 [
                     [x     , y     , z],
-                    [x + 1., y     , z],
                     [x     , y + 1., z],
+                    [x + 1., y     , z],
                     [x + 1., y + 1., z],
                 ],
                 [0., 0., -1.],
             ),
         };
 
+        let step = 1. / ATLAS_SIZE as f32;
+        let uv_step = match face.direction {
+            | FaceDirection::Top => {
+                #[rustfmt::skip]
+                let out = [
+                    [0.       , 0. + step       ,],
+                    [0. + step, 0. + step       ,],
+                    [0.       , 0. + step + step,],
+                    [0. + step, 0. + step + step,],
+                ];
+                out
+            }
+            | FaceDirection::Bot => {
+                #[rustfmt::skip]
+                let out = [
+                    [0. + step       , 0.       ,],
+                    [0. + step + step, 0.       ,],
+                    [0. + step       , 0. + step,],
+                    [0. + step + step, 0. + step,],
+                ];
+                out
+            }
+            | FaceDirection::Lef | FaceDirection::Rig | FaceDirection::Fro | FaceDirection::Bac => {
+                #[rustfmt::skip]
+                let out = [
+                    [0. + step, 0. + step,],
+                    [0. + step, 0.       ,],
+                    [0.       , 0. + step,],
+                    [0.       , 0.       ,],
+                ];
+                out
+            }
+        };
+
         let offset = face_index as u16 * 4;
         pos.extend_from_slice(&quad_positions);
         nor.extend_from_slice(&[quad_normal; 4]);
-        uvs.extend_from_slice(&[[0., 0.], [1., 0.], [0., 1.], [1., 1.]]);
+        uvs.extend_from_slice(&uv_step);
         ind.extend_from_slice(&[offset, offset + 2, offset + 1, offset + 1, offset + 2, offset + 3]);
     }
 
