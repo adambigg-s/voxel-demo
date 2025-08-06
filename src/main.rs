@@ -44,8 +44,11 @@ fn voxel_setup(
         for k in 0..CHUNK_SIZE {
             let height = CHUNK_SIZE as f32 / 2.
                 + ((i + k) as f32 / (CHUNK_SIZE + CHUNK_SIZE) as f32) * CHUNK_SIZE as f32 / 2.;
-            for j in 0..height as usize {
-                chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
+            for j in 0..=height as usize {
+                chunk.voxels[i][j][k] = Voxel::Full(BlockType::Grass);
+                if j != height as usize {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
+                }
                 if random_bool(0.01) {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
                 }
@@ -71,7 +74,7 @@ fn voxel_setup(
         .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
 
     let chunk2 = Chunk {
-        voxels: [[[Voxel::Full(BlockType::Dirt); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+        voxels: [[[Voxel::Full(BlockType::Grass); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
     };
     let chunk2_mesh = generate_mesh(&chunk2);
     let mesh2 = build_mesh(&chunk2_mesh);
@@ -106,7 +109,8 @@ struct _FooBar;
 
 const CHUNK_SIZE: usize = 16;
 const VOXEL_SIZE: f32 = 1.;
-const ATLAS_SIZE: usize = 9;
+const ATLAS_SIZE: usize = 320;
+const TEXTURE_SIZE: usize = 32;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Voxel {
@@ -116,22 +120,40 @@ enum Voxel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum BlockType {
+    Grass,
     Dirt,
     Sand,
+    Wood,
+    Leaf,
 }
 
 impl BlockType {
-    fn texture(&self) -> BlockTexture {
+    const fn texture(&self) -> BlockTexture {
         match self {
-            | Self::Dirt => BlockTexture {
-                top: UVec2::new(0, 1),
-                bot: UVec2::new(1, 0),
-                sid: UVec2::new(0, 0),
+            | Self::Grass => BlockTexture {
+                top: UVec2::new(0, 0),
+                bot: UVec2::new(2, 0),
+                sid: UVec2::new(1, 0),
             },
-            | Self::Sand => BlockTexture {
+            | Self::Dirt => BlockTexture {
                 top: UVec2::new(2, 0),
                 bot: UVec2::new(2, 0),
                 sid: UVec2::new(2, 0),
+            },
+            | Self::Sand => BlockTexture {
+                top: UVec2::new(3, 0),
+                bot: UVec2::new(3, 0),
+                sid: UVec2::new(3, 0),
+            },
+            | Self::Wood => BlockTexture {
+                top: UVec2::new(4, 0),
+                bot: UVec2::new(4, 0),
+                sid: UVec2::new(4, 0),
+            },
+            | Self::Leaf => BlockTexture {
+                top: UVec2::new(5, 0),
+                bot: UVec2::new(5, 0),
+                sid: UVec2::new(5, 0),
             },
         }
     }
@@ -182,14 +204,14 @@ enum VoxelFace {
 
 impl VoxelFace {
     #[rustfmt::skip]
-    fn normal(&self) -> Vec3 {
+    const fn normal(&self) -> Vec3 {
         match self {
-            | Self::Top =>  Vec3::Y,
-            | Self::Bot => -Vec3::Y,
-            | Self::Rig =>  Vec3::X,
-            | Self::Lef => -Vec3::X,
-            | Self::Fro =>  Vec3::Z,
-            | Self::Bac => -Vec3::Z,
+            | Self::Top => Vec3::new(0. , 1. , 0. ),
+            | Self::Bot => Vec3::new(0. , -1., 0. ),
+            | Self::Rig => Vec3::new(1. , 0. , 0. ),
+            | Self::Lef => Vec3::new(-1., 0. , 0. ),
+            | Self::Fro => Vec3::new(0. , 0. , 1. ),
+            | Self::Bac => Vec3::new(0. , 0. , -1.),
         }
     }
 }
@@ -202,12 +224,13 @@ struct Quad {
 }
 
 impl Quad {
-    fn indices(&self, start: u16) -> [u16; 6] {
+    const fn indices(&self, start: u16) -> [u16; 6] {
         [start, start + 2, start + 1, start + 1, start + 2, start + 3]
     }
 
     fn texture_uvs(&self) -> [Vec2; 4] {
-        const STEP: f32 = 1. / ATLAS_SIZE as f32;
+        const STEP: f32 = TEXTURE_SIZE as f32 / ATLAS_SIZE as f32;
+        const TEX_EPS: f32 = 1. / TEXTURE_SIZE as f32;
 
         let Voxel::Full(block) = self._block
         else {
@@ -217,22 +240,22 @@ impl Quad {
 
         match self.face {
             | VoxelFace::Top => [
-                (Vec2::new(0., 0.) + modifier.top.as_vec2()) * STEP,
-                (Vec2::new(1., 0.) + modifier.top.as_vec2()) * STEP,
-                (Vec2::new(0., 1.) + modifier.top.as_vec2()) * STEP,
-                (Vec2::new(1., 1.) + modifier.top.as_vec2()) * STEP,
+                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
+                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
+                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
+                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
             ],
             | VoxelFace::Bot => [
-                (Vec2::new(0., 0.) + modifier.bot.as_vec2()) * STEP,
-                (Vec2::new(1., 0.) + modifier.bot.as_vec2()) * STEP,
-                (Vec2::new(0., 1.) + modifier.bot.as_vec2()) * STEP,
-                (Vec2::new(1., 1.) + modifier.bot.as_vec2()) * STEP,
+                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
+                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
+                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
+                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
             ],
             | _ => [
-                (Vec2::new(1., 1.) + modifier.sid.as_vec2()) * STEP,
-                (Vec2::new(1., 0.) + modifier.sid.as_vec2()) * STEP,
-                (Vec2::new(0., 1.) + modifier.sid.as_vec2()) * STEP,
-                (Vec2::new(0., 0.) + modifier.sid.as_vec2()) * STEP,
+                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
+                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
+                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
+                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
             ],
         }
     }
@@ -247,6 +270,7 @@ impl Quad {
             | VoxelFace::Fro => [[0, 0, 1], [0, 1, 1], [1, 0, 1], [1, 1, 1]],
             | VoxelFace::Bac => [[0, 0, 0], [0, 1, 0], [1, 0, 0], [1, 1, 0]],
         };
+
         [
             Vec3::new(
                 (x + positions[0][0] as f32) * voxel_size,
@@ -317,12 +341,12 @@ fn build_mesh(mesh: &[Quad]) -> Mesh {
     let mut uvs = Vec::new();
     let mut ind = Vec::new();
 
-    for (face_index, face) in mesh.iter().enumerate() {
-        let offset = face_index as u16 * 4;
+    for face in mesh.iter() {
+        let offset = pos.len() as u16;
+        ind.extend_from_slice(&face.indices(offset));
         pos.extend_from_slice(&face.positions(VOXEL_SIZE));
         nor.extend_from_slice(&face.normals());
         uvs.extend_from_slice(&face.texture_uvs());
-        ind.extend_from_slice(&face.indices(offset));
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
