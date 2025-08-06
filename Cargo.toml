@@ -7,6 +7,7 @@ edition = "2024"
 bevy = { version = "0.16.1", features = ["dynamic_linking"] }
 rand = "0.9.2"
 bevy_plugins = { git = "https://github.com/adambigg-s/bevy-plugins.git" }
+bevy_rapier3d = { version = "*", features = ["debug-render-3d"] }
 
 [profile.dev]
 opt-level = 1
