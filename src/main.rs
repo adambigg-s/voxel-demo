@@ -6,6 +6,7 @@ use bevy::{
 };
 
 use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
+use rand::random_bool;
 
 fn main() {
     App::new()
@@ -13,6 +14,7 @@ fn main() {
             default_sampler: ImageSamplerDescriptor {
                 mag_filter: ImageFilterMode::Nearest,
                 min_filter: ImageFilterMode::Nearest,
+                mipmap_filter: ImageFilterMode::Linear,
                 ..Default::default()
             },
         }))
@@ -43,7 +45,10 @@ fn voxel_setup(
             let height = CHUNK_SIZE as f32 / 2.
                 + ((i + k) as f32 / (CHUNK_SIZE + CHUNK_SIZE) as f32) * CHUNK_SIZE as f32 / 2.;
             for j in 0..height as usize {
-                chunk.voxels[i][j][k] = Voxel::Full;
+                chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
+                if random_bool(0.01) {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
+                }
             }
         }
     }
@@ -51,7 +56,7 @@ fn voxel_setup(
     let chunk_mesh = generate_mesh(&chunk);
     let mesh = build_mesh(&chunk_mesh);
     commands
-        .spawn(Mesh3d(meshes.add(mesh)))
+        .spawn(Mesh3d(meshes.add(mesh.clone())))
         .insert(MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(grass_texture.clone()),
             perceptual_roughness: 1.,
@@ -66,12 +71,12 @@ fn voxel_setup(
         .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
 
     let chunk2 = Chunk {
-        voxels: [[[Voxel::Full; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
+        voxels: [[[Voxel::Full(BlockType::Dirt); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
     };
     let chunk2_mesh = generate_mesh(&chunk2);
     let mesh2 = build_mesh(&chunk2_mesh);
     commands
-        .spawn(Mesh3d(meshes.add(mesh2)))
+        .spawn(Mesh3d(meshes.add(mesh2.clone())))
         .insert(MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(grass_texture.clone()),
             perceptual_roughness: 1.,
@@ -79,7 +84,21 @@ fn voxel_setup(
             cull_mode: None,
             ..Default::default()
         })))
-        .insert(Transform::from_xyz(CHUNK_SIZE as f32, 0., 0.));
+        .insert(Transform::from_xyz(CHUNK_SIZE as f32 * 10., 0., 0.));
+    for i in 2..10 {
+        for j in 1..10 {
+            commands
+                .spawn(Mesh3d(meshes.add(mesh.clone())))
+                .insert(MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color_texture: Some(grass_texture.clone()),
+                    perceptual_roughness: 1.,
+                    reflectance: 0.03,
+                    cull_mode: None,
+                    ..Default::default()
+                })))
+                .insert(Transform::from_xyz(CHUNK_SIZE as f32 * i as f32, 0., CHUNK_SIZE as f32 * j as f32));
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -92,7 +111,36 @@ const ATLAS_SIZE: usize = 9;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Voxel {
     Empty,
-    Full,
+    Full(BlockType),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum BlockType {
+    Dirt,
+    Sand,
+}
+
+impl BlockType {
+    fn texture(&self) -> BlockTexture {
+        match self {
+            | Self::Dirt => BlockTexture {
+                top: UVec2::new(0, 1),
+                bot: UVec2::new(1, 0),
+                sid: UVec2::new(0, 0),
+            },
+            | Self::Sand => BlockTexture {
+                top: UVec2::new(2, 0),
+                bot: UVec2::new(2, 0),
+                sid: UVec2::new(2, 0),
+            },
+        }
+    }
+}
+
+struct BlockTexture {
+    top: UVec2,
+    bot: UVec2,
+    sid: UVec2,
 }
 
 struct Chunk {
@@ -106,6 +154,7 @@ impl Chunk {
             (y as isize + dy) as usize,
             (z as isize + dz) as usize,
         ];
+
         if !(nx < CHUNK_SIZE && ny < CHUNK_SIZE && nz < CHUNK_SIZE) {
             return Voxel::Empty;
         }
@@ -155,6 +204,37 @@ struct Quad {
 impl Quad {
     fn indices(&self, start: u16) -> [u16; 6] {
         [start, start + 2, start + 1, start + 1, start + 2, start + 3]
+    }
+
+    fn texture_uvs(&self) -> [Vec2; 4] {
+        const STEP: f32 = 1. / ATLAS_SIZE as f32;
+
+        let Voxel::Full(block) = self._block
+        else {
+            unreachable!();
+        };
+        let modifier = block.texture();
+
+        match self.face {
+            | VoxelFace::Top => [
+                (Vec2::new(0., 0.) + modifier.top.as_vec2()) * STEP,
+                (Vec2::new(1., 0.) + modifier.top.as_vec2()) * STEP,
+                (Vec2::new(0., 1.) + modifier.top.as_vec2()) * STEP,
+                (Vec2::new(1., 1.) + modifier.top.as_vec2()) * STEP,
+            ],
+            | VoxelFace::Bot => [
+                (Vec2::new(0., 0.) + modifier.bot.as_vec2()) * STEP,
+                (Vec2::new(1., 0.) + modifier.bot.as_vec2()) * STEP,
+                (Vec2::new(0., 1.) + modifier.bot.as_vec2()) * STEP,
+                (Vec2::new(1., 1.) + modifier.bot.as_vec2()) * STEP,
+            ],
+            | _ => [
+                (Vec2::new(1., 1.) + modifier.sid.as_vec2()) * STEP,
+                (Vec2::new(1., 0.) + modifier.sid.as_vec2()) * STEP,
+                (Vec2::new(0., 1.) + modifier.sid.as_vec2()) * STEP,
+                (Vec2::new(0., 0.) + modifier.sid.as_vec2()) * STEP,
+            ],
+        }
     }
 
     fn positions(&self, voxel_size: f32) -> [Vec3; 4] {
@@ -218,7 +298,7 @@ fn generate_mesh(chunk: &Chunk) -> Vec<Quad> {
                 ];
 
                 for (direction, neighbor) in neighbors {
-                    if neighbor == Voxel::Full {
+                    if let Voxel::Full(_) = neighbor {
                         continue;
                     }
 
@@ -238,44 +318,10 @@ fn build_mesh(mesh: &[Quad]) -> Mesh {
     let mut ind = Vec::new();
 
     for (face_index, face) in mesh.iter().enumerate() {
-        let step = 1. / ATLAS_SIZE as f32;
-        let uv_step = match face.face {
-            | VoxelFace::Top => {
-                #[rustfmt::skip]
-                let out = [
-                    [0.       , 0. + step       ,],
-                    [0. + step, 0. + step       ,],
-                    [0.       , 0. + step + step,],
-                    [0. + step, 0. + step + step,],
-                ];
-                out
-            }
-            | VoxelFace::Bot => {
-                #[rustfmt::skip]
-                let out = [
-                    [0. + step       , 0.       ,],
-                    [0. + step + step, 0.       ,],
-                    [0. + step       , 0. + step,],
-                    [0. + step + step, 0. + step,],
-                ];
-                out
-            }
-            | _ => {
-                #[rustfmt::skip]
-                let out = [
-                    [0. + step, 0. + step,],
-                    [0. + step, 0.       ,],
-                    [0.       , 0. + step,],
-                    [0.       , 0.       ,],
-                ];
-                out
-            }
-        };
-
         let offset = face_index as u16 * 4;
         pos.extend_from_slice(&face.positions(VOXEL_SIZE));
         nor.extend_from_slice(&face.normals());
-        uvs.extend_from_slice(&uv_step);
+        uvs.extend_from_slice(&face.texture_uvs());
         ind.extend_from_slice(&face.indices(offset));
     }
 
