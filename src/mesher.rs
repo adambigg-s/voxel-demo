@@ -40,11 +40,11 @@ impl VoxelFace {
 pub struct Quad {
     vox_loc: [usize; 3],
     face: VoxelFace,
-    _block: Voxel,
+    block: Voxel,
 }
 
 impl Quad {
-    const fn indices(&self, start: u16) -> [u16; 6] {
+    const fn indices(&self, start: u32) -> [u32; 6] {
         [start, start + 2, start + 1, start + 1, start + 2, start + 3]
     }
 
@@ -52,7 +52,7 @@ impl Quad {
         const STEP: f32 = TEXTURE_SIZE as f32 / ATLAS_SIZE as f32;
         const TEX_EPS: f32 = 1. / TEXTURE_SIZE as f32;
 
-        let Voxel::Full(block) = self._block
+        let Voxel::Full(block) = self.block
         else {
             unreachable!();
         };
@@ -146,7 +146,7 @@ pub fn generate_mesh(chunk: &Chunk) -> Vec<Quad> {
                         continue;
                     }
 
-                    output.push(Quad { vox_loc: [x, y, z], face: direction, _block: current });
+                    output.push(Quad { vox_loc: [x, y, z], face: direction, block: current });
                 }
             }
         }
@@ -162,7 +162,7 @@ pub fn build_mesh(mesh: &[Quad]) -> Mesh {
     let mut ind = Vec::new();
 
     for face in mesh.iter() {
-        let offset = pos.len() as u16;
+        let offset = pos.len() as u32;
         ind.extend_from_slice(&face.indices(offset));
         pos.extend_from_slice(&face.positions(VOXEL_SIZE));
         nor.extend_from_slice(&face.normals());
@@ -170,7 +170,7 @@ pub fn build_mesh(mesh: &[Quad]) -> Mesh {
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all());
-    mesh.insert_indices(Indices::U16(ind));
+    mesh.insert_indices(Indices::U32(ind));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, pos);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, nor);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);

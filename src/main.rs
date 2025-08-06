@@ -1,15 +1,18 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 mod block;
 mod chunk;
 mod config;
 mod mesher;
+mod player;
+mod world;
 
-use bevy::{
-    image::{ImageFilterMode, ImageSamplerDescriptor},
-    prelude::*,
-};
+use bevy::{image::ImageSamplerDescriptor, prelude::*};
 
 use bevy_rapier3d::prelude::*;
 
+use player::PlayerPlugin;
 use rand::random_bool;
 
 use block::{BlockType, Voxel};
@@ -18,22 +21,12 @@ use config::CHUNK_SIZE;
 use mesher::{build_mesh, generate_mesh};
 
 use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
+use world::WorldPlugin;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin {
-            default_sampler: ImageSamplerDescriptor {
-                mag_filter: ImageFilterMode::Nearest,
-                min_filter: ImageFilterMode::Nearest,
-                mipmap_filter: ImageFilterMode::Linear,
-                lod_min_clamp: 0.,
-                lod_max_clamp: 0.,
-                ..Default::default()
-            },
-        }))
-        .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugins(RapierDebugRenderPlugin::default())
-        .add_plugins(CameraPlugin)
+        .add_plugins(DefaultPlugins.set(ImagePlugin { default_sampler: ImageSamplerDescriptor::nearest() }))
+        // .add_plugins(CameraPlugin)
         .add_plugins(WindowManagerPlugin)
         .add_plugins(VoxelPlugin)
         .run();
@@ -44,6 +37,10 @@ struct VoxelPlugin;
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, voxel_setup);
+        app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
+        app.add_plugins(RapierDebugRenderPlugin::default());
+        app.add_plugins(PlayerPlugin);
+        app.add_plugins(WorldPlugin);
     }
 }
 
@@ -82,29 +79,14 @@ fn voxel_setup(
             cull_mode: None,
             ..Default::default()
         })))
-        .insert(Transform::default())
         .insert(
-            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::all())).unwrap(),
+            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
+                .expect("error generating rapier collider for chunk"),
         )
-        .insert(RigidBody::Fixed);
+        .insert(RigidBody::Fixed)
+        .insert(Transform::default());
 
     commands
         .spawn(DirectionalLight { shadows_enabled: true, ..Default::default() })
         .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
-
-    let chunk2 = Chunk {
-        voxels: [[[Voxel::Full(BlockType::Grass); CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],
-    };
-    let chunk2_mesh = generate_mesh(&chunk2);
-    let mesh2 = build_mesh(&chunk2_mesh);
-    commands
-        .spawn(Mesh3d(meshes.add(mesh2.clone())))
-        .insert(MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(grass_texture.clone()),
-            perceptual_roughness: 1.,
-            reflectance: 0.03,
-            cull_mode: None,
-            ..Default::default()
-        })))
-        .insert(Transform::from_xyz(CHUNK_SIZE as f32 * 3., 0., -(CHUNK_SIZE as f32) * 3.));
 }
