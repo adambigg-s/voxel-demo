@@ -64,10 +64,12 @@ fn voxel_setup(
 ) {
     let grass_texture: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
-    let perlin = Perlin::new(256);
+    let perlinoc0 = Perlin::new(3334);
+    let perlinoc1 = Perlin::new(128);
     for i in 0..CHUNK_SIZE {
         for k in 0..CHUNK_SIZE {
-            let height_float = perlin.get([i as f64 / 128., k as f64 / 128.]).abs() * CHUNK_SIZE as f64;
+            let height_float = perlinoc0.get([i as f64 / 256., k as f64 / 256.]).abs() * CHUNK_SIZE as f64
+                + perlinoc1.get([i as f64 / 64., k as f64 / 64.]).abs() * CHUNK_SIZE as f64 / 2.;
             let height = (height_float as usize).min(CHUNK_SIZE - 1);
             for j in 0..=height {
                 if j == height {
