@@ -51,7 +51,6 @@ fn player_setup(
         .insert(Mesh3d(meshes.add(Capsule3d::new(0.3, 1.5))))
         .insert(MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0., 1., 1.)))))
         .insert(KinematicCharacterController { ..Default::default() })
-        .insert(SkyBoxAttachment)
         .insert(KinematicCharacterControllerOutput::default())
         .insert(Collider::cuboid(0.3, 0.75, 0.3))
         .insert(RigidBody::KinematicPositionBased)
@@ -64,6 +63,7 @@ fn player_setup(
         .spawn(PlayerCamera)
         .insert(Camera3d::default())
         .insert(Camera { is_active: false, ..Default::default() })
+        .insert(SkyBoxAttachment)
         .insert(Transform::from_xyz(0., 0.75, 0.))
         .id();
 

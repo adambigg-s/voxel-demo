@@ -1,9 +1,9 @@
 mod block;
-mod skybox;
 mod chunk;
 mod config;
 mod mesher;
 mod player;
+mod skybox;
 mod world;
 
 use bevy::image::ImageSamplerDescriptor;
@@ -12,6 +12,8 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use rand::random_bool;
+
+use noise::{NoiseFn, Perlin};
 
 use bevy_plugins::camera::CameraPlugin;
 use bevy_plugins::window::WindowManagerPlugin;
@@ -58,17 +60,20 @@ fn voxel_setup(
 ) {
     let grass_texture: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
+    let perlin = Perlin::new(5);
     for i in 0..CHUNK_SIZE {
         for k in 0..CHUNK_SIZE {
-            let height = CHUNK_SIZE as f32 / 2.
-                + ((i + k) as f32 / (CHUNK_SIZE + CHUNK_SIZE) as f32) * CHUNK_SIZE as f32 / 2.;
-            for j in 0..=height as usize {
-                chunk.voxels[i][j][k] = Voxel::Full(BlockType::Grass);
-                if j != height as usize {
-                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
+            let height_float = perlin.get([i as f64 / 76., k as f64 / 76.]).abs() * CHUNK_SIZE as f64;
+            let height = (height_float as usize).min(CHUNK_SIZE - 1);
+            for j in 0..=height {
+                if j == height {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Grass);
                 }
-                if random_bool(0.01) {
+                else if random_bool(0.03) {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
+                }
+                else {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
                 }
             }
         }

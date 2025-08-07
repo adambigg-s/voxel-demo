@@ -1,5 +1,14 @@
 use bevy::math::UVec2;
 
+trait _Block
+where
+    Self: PartialEq + Eq,
+{
+    type Output;
+
+    fn parameters() -> Self::Output;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Voxel {
     Empty,

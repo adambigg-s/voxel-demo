@@ -42,11 +42,11 @@ fn skybox_setup(
 
 fn skybox_follow(
     mut skybox: Query<&mut Transform, With<SkyBox>>,
-    leader: Query<&Transform, (With<SkyBoxAttachment>, Without<SkyBox>)>,
+    leader: Query<&GlobalTransform, (With<SkyBoxAttachment>, Without<SkyBox>)>,
 ) {
     if let Ok(leader_transform) = leader.single_inner() {
         for mut skybox_transform in &mut skybox {
-            skybox_transform.translation = leader_transform.translation;
+            skybox_transform.translation = leader_transform.translation();
         }
     }
 }
