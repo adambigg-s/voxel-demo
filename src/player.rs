@@ -1,11 +1,18 @@
 use bevy::input::mouse::AccumulatedMouseMotion;
+use bevy::pbr::ScreenSpaceAmbientOcclusion;
+use bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel;
+use bevy::pbr::ScreenSpaceAmbientOcclusionResources;
 use bevy::prelude::*;
+use bevy::render::camera::TemporalJitter;
 use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
 
+use crate::config::blocks::VOXEL_SIZE;
 use crate::config::keys::PLAYER_RESET;
+use crate::config::player::BLOCK_REACH;
 use crate::skybox::SkyBoxAttachment;
 use crate::skybox::SkyBoxPlugin;
+use crate::world::BlockBreakEvent;
 
 pub struct PlayerPlugin;
 
@@ -50,7 +57,10 @@ fn player_setup(
         })
         .insert(Mesh3d(meshes.add(Capsule3d::new(0.3, 1.5))))
         .insert(MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0., 1., 1.)))))
-        .insert(KinematicCharacterController { ..Default::default() })
+        .insert(KinematicCharacterController {
+            snap_to_ground: Some(CharacterLength::Relative(0.5)),
+            ..Default::default()
+        })
         .insert(KinematicCharacterControllerOutput::default())
         .insert(Collider::cuboid(0.3, 0.75, 0.3))
         .insert(RigidBody::KinematicPositionBased)
@@ -65,9 +75,26 @@ fn player_setup(
         .insert(Camera { is_active: false, ..Default::default() })
         .insert(SkyBoxAttachment)
         .insert(Transform::from_xyz(0., 0.75, 0.))
+        .insert(ScreenSpaceAmbientOcclusion {
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
+            ..Default::default()
+        })
+        .insert(Msaa::Off)
+        .id();
+
+    let crosshair = commands
+        .spawn(Mesh3d(meshes.add(Sphere::new(0.001))))
+        .insert(MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::srgb(0., 1., 1.),
+            unlit: true,
+            emissive: Color::srgb(25., 25., 25.).into(),
+            ..Default::default()
+        })))
+        .insert(Transform::from_xyz(0., 0., -0.5))
         .id();
 
     commands.entity(player_collider).add_child(player_camera);
+    commands.entity(player_camera).add_child(crosshair);
 }
 
 fn player_look(
@@ -121,7 +148,7 @@ fn player_move(
     if control_output.grounded && vertical_velocity.value.is_sign_negative() {
         vertical_velocity.value = 0.;
     }
-    if keys.just_pressed(KeyCode::Space) && control_output.grounded {
+    if keys.pressed(KeyCode::Space) && control_output.grounded {
         vertical_velocity.value = player.jump_velocity;
     }
 
@@ -131,9 +158,11 @@ fn player_move(
 }
 
 fn player_interact(
+    mut break_events: EventWriter<BlockBreakEvent>,
     player_transform: Single<&GlobalTransform, With<PlayerCamera>>,
     player_collider: Single<Entity, With<Player>>,
     context: ReadRapierContext,
+    mouse: Res<ButtonInput<MouseButton>>,
 ) {
     let Ok(context) = context.single()
     else {
@@ -141,14 +170,19 @@ fn player_interact(
         return;
     };
 
-    if let Some(hit) = context.cast_ray_and_get_normal(
+    if let Some(ray_hit) = context.cast_ray_and_get_normal(
         player_transform.translation(),
         player_transform.forward().as_vec3(),
-        10.,
-        false,
+        BLOCK_REACH,
+        true,
         QueryFilter::new().exclude_collider(player_collider.into_inner()),
     ) {
-        info!("ray hit info: {:?}", hit);
+        let (_, hit) = ray_hit;
+
+        let break_pos = (hit.point - hit.normal * VOXEL_SIZE / 100.).as_ivec3();
+        if mouse.just_pressed(MouseButton::Left) {
+            break_events.write(BlockBreakEvent { block: break_pos });
+        }
     }
 }
 

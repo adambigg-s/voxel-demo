@@ -11,6 +11,7 @@ use bevy::prelude::*;
 
 use bevy_rapier3d::prelude::*;
 
+use config::blocks::TRI_COLLIDER_MESH;
 use rand::random_bool;
 
 use noise::{NoiseFn, Perlin};
@@ -27,7 +28,9 @@ use config::keys::RAPIER_RENDER;
 use mesher::build_mesh;
 use mesher::generate_mesh;
 use player::PlayerPlugin;
-use world::WorldPlugin;
+use world::ChunkMarker;
+use world::WorldChunks;
+use world::WorldChunksPlugin;
 
 fn main() {
     App::new()
@@ -45,7 +48,7 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
         app.add_plugins(RapierDebugRenderPlugin::default());
         app.add_plugins(PlayerPlugin);
-        app.add_plugins(WorldPlugin);
+        app.add_plugins(WorldChunksPlugin);
         app.add_systems(Startup, voxel_setup);
         app.add_systems(Update, debug_render_toggle);
         app.add_systems(Update, debug_camera_cycle);
@@ -54,16 +57,17 @@ impl Plugin for VoxelPlugin {
 
 fn voxel_setup(
     mut commands: Commands,
+    mut world: ResMut<WorldChunks>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     let grass_texture: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
-    let perlin = Perlin::new(5);
+    let perlin = Perlin::new(256);
     for i in 0..CHUNK_SIZE {
         for k in 0..CHUNK_SIZE {
-            let height_float = perlin.get([i as f64 / 76., k as f64 / 76.]).abs() * CHUNK_SIZE as f64;
+            let height_float = perlin.get([i as f64 / 128., k as f64 / 128.]).abs() * CHUNK_SIZE as f64;
             let height = (height_float as usize).min(CHUNK_SIZE - 1);
             for j in 0..=height {
                 if j == height {
@@ -78,8 +82,9 @@ fn voxel_setup(
             }
         }
     }
+    world.chunks = Some(chunk);
 
-    let chunk_mesh = generate_mesh(&chunk);
+    let chunk_mesh = generate_mesh(world.chunks.as_ref().expect("failed to insert chunk"));
     let mesh = build_mesh(&chunk_mesh);
     commands
         .spawn(Mesh3d(meshes.add(mesh.clone())))
@@ -90,8 +95,9 @@ fn voxel_setup(
             cull_mode: None,
             ..Default::default()
         })))
+        .insert(ChunkMarker)
         .insert(
-            Collider::from_bevy_mesh(&mesh, &ComputedColliderShape::TriMesh(TriMeshFlags::empty()))
+            Collider::from_bevy_mesh(&mesh, &TRI_COLLIDER_MESH)
                 .expect("error generating rapier collider for chunk"),
         )
         .insert(RigidBody::Fixed)
@@ -99,11 +105,18 @@ fn voxel_setup(
 
     commands
         .spawn(DirectionalLight {
+            color: Color::srgb(1., 0.9, 0.9),
             shadows_enabled: true,
             illuminance: 50000.,
             ..Default::default()
         })
         .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
+
+    commands.insert_resource(AmbientLight {
+        color: Color::srgb(1., 0.75, 0.75),
+        brightness: 750.,
+        ..Default::default()
+    });
 }
 
 fn debug_render_toggle(mut render: ResMut<DebugRenderContext>, keys: Res<ButtonInput<KeyCode>>) {
