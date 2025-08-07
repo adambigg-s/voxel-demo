@@ -1,32 +1,36 @@
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
 mod block;
+mod skybox;
 mod chunk;
 mod config;
 mod mesher;
 mod player;
 mod world;
 
-use bevy::{image::ImageSamplerDescriptor, prelude::*};
+use bevy::image::ImageSamplerDescriptor;
+use bevy::prelude::*;
 
 use bevy_rapier3d::prelude::*;
 
-use player::PlayerPlugin;
 use rand::random_bool;
 
-use block::{BlockType, Voxel};
-use chunk::Chunk;
-use config::CHUNK_SIZE;
-use mesher::{build_mesh, generate_mesh};
+use bevy_plugins::camera::CameraPlugin;
+use bevy_plugins::window::WindowManagerPlugin;
 
-use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
+use block::BlockType;
+use block::Voxel;
+use chunk::Chunk;
+use config::blocks::CHUNK_SIZE;
+use config::keys::CAMERA_CYCLE;
+use config::keys::RAPIER_RENDER;
+use mesher::build_mesh;
+use mesher::generate_mesh;
+use player::PlayerPlugin;
 use world::WorldPlugin;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin { default_sampler: ImageSamplerDescriptor::nearest() }))
-        // .add_plugins(CameraPlugin)
+        .add_plugins(CameraPlugin)
         .add_plugins(WindowManagerPlugin)
         .add_plugins(VoxelPlugin)
         .run();
@@ -36,11 +40,13 @@ struct VoxelPlugin;
 
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, voxel_setup);
         app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
         app.add_plugins(RapierDebugRenderPlugin::default());
         app.add_plugins(PlayerPlugin);
         app.add_plugins(WorldPlugin);
+        app.add_systems(Startup, voxel_setup);
+        app.add_systems(Update, debug_render_toggle);
+        app.add_systems(Update, debug_camera_cycle);
     }
 }
 
@@ -87,6 +93,24 @@ fn voxel_setup(
         .insert(Transform::default());
 
     commands
-        .spawn(DirectionalLight { shadows_enabled: true, ..Default::default() })
+        .spawn(DirectionalLight {
+            shadows_enabled: true,
+            illuminance: 50000.,
+            ..Default::default()
+        })
         .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
+}
+
+fn debug_render_toggle(mut render: ResMut<DebugRenderContext>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(RAPIER_RENDER) {
+        render.enabled = !render.enabled;
+    }
+}
+
+fn debug_camera_cycle(mut query: Query<&mut Camera, With<Camera3d>>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(CAMERA_CYCLE) {
+        for mut camera in &mut query {
+            camera.is_active = !camera.is_active;
+        }
+    }
 }

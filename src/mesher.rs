@@ -7,10 +7,10 @@ use bevy::render::mesh::PrimitiveTopology;
 
 use crate::block::Voxel;
 use crate::chunk::Chunk;
-use crate::config::ATLAS_SIZE;
-use crate::config::CHUNK_SIZE;
-use crate::config::TEXTURE_SIZE;
-use crate::config::VOXEL_SIZE;
+use crate::config::aesthetics::ATLAS_SIZE;
+use crate::config::aesthetics::TEXTURE_SIZE;
+use crate::config::blocks::CHUNK_SIZE;
+use crate::config::blocks::VOXEL_SIZE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum VoxelFace {

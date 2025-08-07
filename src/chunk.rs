@@ -1,5 +1,5 @@
 use crate::block::Voxel;
-use crate::config::CHUNK_SIZE;
+use crate::config::blocks::CHUNK_SIZE;
 
 pub struct Chunk {
     pub voxels: [[[Voxel; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE],

@@ -1,100 +1,161 @@
-use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*, window::PrimaryWindow};
+use bevy::input::mouse::AccumulatedMouseMotion;
+use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
+
+use crate::config::keys::PLAYER_RESET;
+use crate::skybox::SkyBoxAttachment;
+use crate::skybox::SkyBoxPlugin;
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(SkyBoxPlugin);
         app.add_systems(Startup, player_setup);
-        app.add_systems(Update, player_move);
         app.add_systems(Update, player_look);
+        app.add_systems(Update, player_move);
         app.add_systems(Update, player_interact);
+        app.add_systems(Update, player_reset);
     }
+}
+
+#[derive(Default, Component)]
+struct VerticalVelocity {
+    value: f32,
 }
 
 #[derive(Component)]
 struct Player {
     speed: f32,
     look_speed: f32,
+    jump_velocity: f32,
+    gravity: f32,
 }
+
+#[derive(Component)]
+struct PlayerCamera;
 
 fn player_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands
-        .spawn(Player { speed: 10., look_speed: 0.001 })
-        .insert(Camera3d::default())
-        .insert(Mesh3d(meshes.add(Capsule3d::new(0.5, 1.5))))
+    let player_collider = commands
+        .spawn(Player {
+            speed: 10.,
+            look_speed: 0.001,
+            jump_velocity: 7.5,
+            gravity: 25.,
+        })
+        .insert(Mesh3d(meshes.add(Capsule3d::new(0.3, 1.5))))
         .insert(MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0., 1., 1.)))))
         .insert(KinematicCharacterController { ..Default::default() })
-        .insert(Collider::capsule_y(0.75, 0.5))
-        .insert(RigidBody::Dynamic)
+        .insert(SkyBoxAttachment)
+        .insert(KinematicCharacterControllerOutput::default())
+        .insert(Collider::cuboid(0.3, 0.75, 0.3))
+        .insert(RigidBody::KinematicPositionBased)
         .insert(LockedAxes::ROTATION_LOCKED)
-        .insert(Transform::from_xyz(10., 40., 10.));
+        .insert(VerticalVelocity::default())
+        .insert(Transform::from_xyz(10., 40., 10.))
+        .id();
+
+    let player_camera = commands
+        .spawn(PlayerCamera)
+        .insert(Camera3d::default())
+        .insert(Camera { is_active: false, ..Default::default() })
+        .insert(Transform::from_xyz(0., 0.75, 0.))
+        .id();
+
+    commands.entity(player_collider).add_child(player_camera);
+}
+
+fn player_look(
+    mut cam_query: Single<&mut Transform, With<PlayerCamera>>,
+    player_query: Single<&Player>,
+    mouse: Res<AccumulatedMouseMotion>,
+    window: Single<&Window, With<PrimaryWindow>>,
+) {
+    let [dyaw, dpitch] = [
+        -mouse.delta.x * player_query.look_speed * window.scale_factor(),
+        -mouse.delta.y * player_query.look_speed * window.scale_factor(),
+    ];
+    let (yaw, pitch, _) = cam_query.rotation.to_euler(EulerRot::YXZ);
+
+    cam_query.rotation = Quat::from_euler(
+        EulerRot::YXZ,
+        yaw + dyaw,
+        (pitch + dpitch).to_degrees().clamp(-89., 89.).to_radians(),
+        0.,
+    );
 }
 
 fn player_move(
-    mut query: Query<(&mut KinematicCharacterController, &Transform, &Player)>,
+    player_query: Single<(
+        &mut KinematicCharacterController,
+        &mut VerticalVelocity,
+        &KinematicCharacterControllerOutput,
+        &Player,
+    )>,
+    cam_query: Single<&Transform, With<PlayerCamera>>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let Ok((mut controller, transform, settings)) = query.single_mut()
-    else {
-        panic!("should be a player initialized");
-    };
+    let (mut controller, mut vertical_velocity, control_output, player) = player_query.into_inner();
     let dt = time.delta_secs();
-
-    let [f, r, u] = [
-        transform.forward().with_y(0.).normalize(),
-        transform.right().normalize(),
-        Vec3::Y,
-    ];
+    let (f, r) = (cam_query.forward().with_y(0.).normalize(), cam_query.right().normalize());
 
     let mut movement = Vec3::ZERO;
     for key in keys.get_pressed() {
         match key {
             | KeyCode::KeyW => movement += f,
             | KeyCode::KeyS => movement -= f,
-            | KeyCode::KeyA => movement -= r,
             | KeyCode::KeyD => movement += r,
-            | KeyCode::Space => movement += u,
+            | KeyCode::KeyA => movement -= r,
             | _ => {}
         }
     }
+    let horizontal = movement.normalize_or_zero() * player.speed * dt;
 
-    let desired = movement.normalize_or_zero() * settings.speed * dt;
+    vertical_velocity.value -= player.gravity * dt;
+    if control_output.grounded && vertical_velocity.value.is_sign_negative() {
+        vertical_velocity.value = 0.;
+    }
+    if keys.just_pressed(KeyCode::Space) && control_output.grounded {
+        vertical_velocity.value = player.jump_velocity;
+    }
 
-    controller.translation = Some(desired);
+    let total_movemnt = horizontal + Vec3::new(0., vertical_velocity.value * dt, 0.);
+
+    controller.translation = Some(total_movemnt);
 }
 
-fn player_look(
-    mut query: Query<(&mut Transform, &Player)>,
-    mouse: Res<AccumulatedMouseMotion>,
-    window: Query<&Window, With<PrimaryWindow>>,
+fn player_interact(
+    player_transform: Single<&GlobalTransform, With<PlayerCamera>>,
+    player_collider: Single<Entity, With<Player>>,
+    context: ReadRapierContext,
 ) {
-    let Ok(window) = window.single_inner()
+    let Ok(context) = context.single()
     else {
-        panic!("should have a window initialized");
+        error!("failed to get rapier context");
+        return;
     };
 
-    for (mut transform, player) in &mut query {
-        let delta = mouse.delta;
-        let (dpitch, dyaw) = (
-            -delta.y * player.look_speed * window.scale_factor(),
-            -delta.x * player.look_speed * window.scale_factor(),
-        );
-
-        let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
-
-        transform.rotation = Quat::from_euler(
-            EulerRot::YXZ,
-            yaw + dyaw,
-            (pitch + dpitch).to_degrees().clamp(-89., 89.).to_radians(),
-            0.,
-        );
+    if let Some(hit) = context.cast_ray_and_get_normal(
+        player_transform.translation(),
+        player_transform.forward().as_vec3(),
+        10.,
+        false,
+        QueryFilter::new().exclude_collider(player_collider.into_inner()),
+    ) {
+        info!("ray hit info: {:?}", hit);
     }
 }
 
-fn player_interact() {}
+fn player_reset(mut query: Query<&mut Transform, With<Player>>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(PLAYER_RESET) {
+        for mut transform in &mut query {
+            *transform = transform.with_translation(Vec3::new(3., 20., 3.));
+        }
+    }
+}
