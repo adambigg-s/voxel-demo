@@ -32,13 +32,13 @@ pub struct WorldChunks {
 
 #[derive(Resource)]
 pub struct _WorldChunksInfinite {
-    pub chunks: HashMap<IVec3, Chunk>,
+    pub _chunks: HashMap<IVec3, Chunk>,
 }
 
 impl Default for _WorldChunksInfinite {
     fn default() -> Self {
         Self {
-            chunks: HashMap::with_capacity(RENDER_DISTANCE * RENDER_DISTANCE),
+            _chunks: HashMap::with_capacity(RENDER_DISTANCE * RENDER_DISTANCE),
         }
     }
 }

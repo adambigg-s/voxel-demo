@@ -11,6 +11,7 @@ use bevy::prelude::*;
 
 use bevy_rapier3d::prelude::*;
 
+use player::PlayerCamera;
 use rand::random_bool;
 
 use noise::{NoiseFn, Perlin};
@@ -46,12 +47,13 @@ struct VoxelPlugin;
 impl Plugin for VoxelPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
-        app.add_plugins(RapierDebugRenderPlugin::default());
+        app.add_plugins(RapierDebugRenderPlugin { enabled: false, ..Default::default() });
         app.add_plugins(PlayerPlugin);
         app.add_plugins(WorldChunksPlugin);
         app.add_systems(Startup, voxel_setup);
         app.add_systems(Update, debug_render_toggle);
         app.add_systems(Update, debug_camera_cycle);
+        app.add_systems(Update, debug_camera_fov);
     }
 }
 
@@ -62,16 +64,17 @@ fn voxel_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let grass_texture: Handle<Image> = asset_server.load("atlas.png");
+    let textures: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
-    let perlinoc0 = Perlin::new(3334);
-    let perlinoc1 = Perlin::new(128);
-    let perlinoc2 = Perlin::new(393939);
-    let perlinoc3 = Perlin::new(138138);
+    let perlinoc0 = Perlin::new(59930133);
+    let perlinoc1 = Perlin::new(3930303);
+    let perlinoc2 = Perlin::new(39989);
+    let perlinoc3 = Perlin::new(541);
     for i in 0..CHUNK_SIZE {
         for k in 0..CHUNK_SIZE {
-            let height_float = perlinoc0.get([i as f64 / 256., k as f64 / 256.]).abs() * CHUNK_SIZE as f64
-                + perlinoc1.get([i as f64 / 64., k as f64 / 64.]).abs() * CHUNK_SIZE as f64 / 2.
+            let height_float = perlinoc0.get([i as f64 / 315., k as f64 / 315.]).abs() * CHUNK_SIZE as f64
+                / 2.
+                + perlinoc1.get([i as f64 / 100., k as f64 / 100.]).abs() * CHUNK_SIZE as f64 / 2.
                 + perlinoc2.get([i as f64 / 32., k as f64 / 32.]).abs() * CHUNK_SIZE as f64 / 4.
                 + perlinoc3.get([i as f64 / 16., k as f64 / 16.]).abs() * CHUNK_SIZE as f64 / 8.;
             let height = (height_float as usize).min(CHUNK_SIZE - 1);
@@ -79,11 +82,14 @@ fn voxel_setup(
                 if j == height {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Grass);
                 }
-                else if random_bool(0.03) {
+                else if random_bool(0.04) {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
                 }
-                else {
+                else if j > height.saturating_sub(4) {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
+                }
+                else {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
                 }
             }
         }
@@ -95,7 +101,7 @@ fn voxel_setup(
     commands
         .spawn(Mesh3d(meshes.add(mesh.clone())))
         .insert(MeshMaterial3d(materials.add(StandardMaterial {
-            base_color_texture: Some(grass_texture.clone()),
+            base_color_texture: Some(textures.clone()),
             perceptual_roughness: 1.,
             reflectance: 0.03,
             cull_mode: None,
@@ -136,5 +142,18 @@ fn debug_camera_cycle(mut query: Query<&mut Camera, With<Camera3d>>, keys: Res<B
         for mut camera in &mut query {
             camera.is_active = !camera.is_active;
         }
+    }
+}
+
+fn debug_camera_fov(mut query: Single<&mut Projection, With<PlayerCamera>>, keys: Res<ButtonInput<KeyCode>>) {
+    let Projection::Perspective(inner) = query.as_mut()
+    else {
+        return;
+    };
+    if keys.just_pressed(KeyCode::Minus) {
+        inner.fov -= 0.1;
+    }
+    if keys.just_pressed(KeyCode::Equal) {
+        inner.fov += 0.1;
     }
 }

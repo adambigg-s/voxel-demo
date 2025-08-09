@@ -26,5 +26,5 @@ pub mod keys {
 }
 
 pub mod player {
-    pub const BLOCK_REACH: f32 = 4.;
+    pub const BLOCK_REACH: f32 = 5.;
 }

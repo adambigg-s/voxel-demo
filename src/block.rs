@@ -16,13 +16,47 @@ pub enum Voxel {
     _Semi(BlockType),
 }
 
+impl From<Voxel> for String {
+    fn from(val: Voxel) -> Self {
+        match val {
+            | Voxel::Empty => unreachable!("player can't select this"),
+            | Voxel::Full(block) => String::from(block),
+            | Voxel::_Semi(_) => todo!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BlockType {
     Grass,
     Dirt,
     Sand,
-    _Wood,
-    _Leaf,
+    Wood,
+    Leaf,
+}
+
+pub const BLOCKS: [Voxel; 5] = [
+    Voxel::Full(BlockType::Grass),
+    Voxel::Full(BlockType::Dirt),
+    Voxel::Full(BlockType::Sand),
+    Voxel::Full(BlockType::Wood),
+    Voxel::Full(BlockType::Leaf),
+];
+
+pub fn get_block(index: usize) -> Voxel {
+    BLOCKS[index % BLOCKS.len()]
+}
+
+impl From<BlockType> for String {
+    fn from(value: BlockType) -> Self {
+        match value {
+            | BlockType::Grass => String::from("grass"),
+            | BlockType::Dirt => String::from("dirt"),
+            | BlockType::Sand => String::from("sand"),
+            | BlockType::Wood => String::from("wood"),
+            | BlockType::Leaf => String::from("leaf"),
+        }
+    }
 }
 
 impl BlockType {
@@ -43,12 +77,12 @@ impl BlockType {
                 bot: UVec2::new(3, 0),
                 sid: UVec2::new(3, 0),
             },
-            | Self::_Wood => BlockTexture {
+            | Self::Wood => BlockTexture {
                 top: UVec2::new(4, 0),
                 bot: UVec2::new(4, 0),
                 sid: UVec2::new(4, 0),
             },
-            | Self::_Leaf => BlockTexture {
+            | Self::Leaf => BlockTexture {
                 top: UVec2::new(9, 9),
                 bot: UVec2::new(9, 9),
                 sid: UVec2::new(9, 9),
