@@ -56,26 +56,26 @@ impl Quad {
         else {
             unreachable!();
         };
-        let modifier = block.texture();
+        let atlas_offset = block.texture();
 
         match self.face {
             | VoxelFace::Top => [
-                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
-                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
-                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
-                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.top.as_vec2() * STEP,
+                (Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) + atlas_offset.top.as_vec2()) * STEP,
+                (Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) + atlas_offset.top.as_vec2()) * STEP,
+                (Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) + atlas_offset.top.as_vec2()) * STEP,
+                (Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) + atlas_offset.top.as_vec2()) * STEP,
             ],
             | VoxelFace::Bot => [
-                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
-                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
-                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
-                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.bot.as_vec2() * STEP,
+                (Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) + atlas_offset.bot.as_vec2()) * STEP,
+                (Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) + atlas_offset.bot.as_vec2()) * STEP,
+                (Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) + atlas_offset.bot.as_vec2()) * STEP,
+                (Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) + atlas_offset.bot.as_vec2()) * STEP,
             ],
             | _ => [
-                Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
-                Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
-                Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
-                Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) * STEP + modifier.sid.as_vec2() * STEP,
+                (Vec2::new(1. - TEX_EPS, 1. - TEX_EPS) + atlas_offset.sid.as_vec2()) * STEP,
+                (Vec2::new(1. - TEX_EPS, 0. + TEX_EPS) + atlas_offset.sid.as_vec2()) * STEP,
+                (Vec2::new(0. + TEX_EPS, 1. - TEX_EPS) + atlas_offset.sid.as_vec2()) * STEP,
+                (Vec2::new(0. + TEX_EPS, 0. + TEX_EPS) + atlas_offset.sid.as_vec2()) * STEP,
             ],
         }
     }

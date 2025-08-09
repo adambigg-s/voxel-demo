@@ -1,14 +1,17 @@
-use bevy::prelude::*;
-
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct _FooBar;
 
+pub mod world {
+    pub const RENDER_DISTANCE: usize = 3;
+}
+
 pub mod blocks {
-    use bevy_rapier3d::prelude::{ComputedColliderShape, TriMeshFlags};
     pub const CHUNK_SIZE: usize = 32;
     pub const VOXEL_SIZE: f32 = 1.;
-    pub const TRI_COLLIDER_MESH: ComputedColliderShape =
-        ComputedColliderShape::TriMesh(TriMeshFlags::ORIENTED);
+    pub const TRI_COLLIDER_MESH: bevy_rapier3d::prelude::ComputedColliderShape =
+        bevy_rapier3d::prelude::ComputedColliderShape::TriMesh(
+            bevy_rapier3d::prelude::TriMeshFlags::ORIENTED,
+        );
 }
 
 pub mod aesthetics {
@@ -17,10 +20,9 @@ pub mod aesthetics {
 }
 
 pub mod keys {
-    use super::*;
-    pub const RAPIER_RENDER: KeyCode = KeyCode::KeyY;
-    pub const CAMERA_CYCLE: KeyCode = KeyCode::KeyU;
-    pub const PLAYER_RESET: KeyCode = KeyCode::KeyP;
+    pub const RAPIER_RENDER: bevy::input::keyboard::KeyCode = bevy::input::keyboard::KeyCode::KeyY;
+    pub const CAMERA_CYCLE: bevy::input::keyboard::KeyCode = bevy::input::keyboard::KeyCode::KeyU;
+    pub const PLAYER_RESET: bevy::input::keyboard::KeyCode = bevy::input::keyboard::KeyCode::KeyP;
 }
 
 pub mod player {

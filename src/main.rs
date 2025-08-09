@@ -11,7 +11,6 @@ use bevy::prelude::*;
 
 use bevy_rapier3d::prelude::*;
 
-use config::blocks::TRI_COLLIDER_MESH;
 use rand::random_bool;
 
 use noise::{NoiseFn, Perlin};
@@ -23,6 +22,7 @@ use block::BlockType;
 use block::Voxel;
 use chunk::Chunk;
 use config::blocks::CHUNK_SIZE;
+use config::blocks::TRI_COLLIDER_MESH;
 use config::keys::CAMERA_CYCLE;
 use config::keys::RAPIER_RENDER;
 use mesher::build_mesh;
@@ -66,10 +66,14 @@ fn voxel_setup(
     let mut chunk = Chunk::default();
     let perlinoc0 = Perlin::new(3334);
     let perlinoc1 = Perlin::new(128);
+    let perlinoc2 = Perlin::new(393939);
+    let perlinoc3 = Perlin::new(138138);
     for i in 0..CHUNK_SIZE {
         for k in 0..CHUNK_SIZE {
             let height_float = perlinoc0.get([i as f64 / 256., k as f64 / 256.]).abs() * CHUNK_SIZE as f64
-                + perlinoc1.get([i as f64 / 64., k as f64 / 64.]).abs() * CHUNK_SIZE as f64 / 2.;
+                + perlinoc1.get([i as f64 / 64., k as f64 / 64.]).abs() * CHUNK_SIZE as f64 / 2.
+                + perlinoc2.get([i as f64 / 32., k as f64 / 32.]).abs() * CHUNK_SIZE as f64 / 4.
+                + perlinoc3.get([i as f64 / 16., k as f64 / 16.]).abs() * CHUNK_SIZE as f64 / 8.;
             let height = (height_float as usize).min(CHUNK_SIZE - 1);
             for j in 0..=height {
                 if j == height {
@@ -112,7 +116,7 @@ fn voxel_setup(
             illuminance: 50000.,
             ..Default::default()
         })
-        .insert(Transform::default().looking_at(Vec3::new(0.3, -1., 1.), Vec3::Y));
+        .insert(Transform::default().looking_at(Vec3::new(0.5, -2., 1.), Vec3::Y));
 
     commands.insert_resource(AmbientLight {
         color: Color::srgb(1., 0.75, 0.75),

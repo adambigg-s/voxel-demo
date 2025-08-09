@@ -1,18 +1,19 @@
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel;
-use bevy::pbr::ScreenSpaceAmbientOcclusionResources;
 use bevy::prelude::*;
-use bevy::render::camera::TemporalJitter;
 use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
 
+use crate::block::BlockType;
+use crate::block::Voxel;
 use crate::config::blocks::VOXEL_SIZE;
 use crate::config::keys::PLAYER_RESET;
 use crate::config::player::BLOCK_REACH;
 use crate::skybox::SkyBoxAttachment;
 use crate::skybox::SkyBoxPlugin;
 use crate::world::BlockBreakEvent;
+use crate::world::BlockPlaceEvent;
 
 pub struct PlayerPlugin;
 
@@ -73,13 +74,13 @@ fn player_setup(
         .spawn(PlayerCamera)
         .insert(Camera3d::default())
         .insert(Camera { is_active: false, ..Default::default() })
-        .insert(SkyBoxAttachment)
-        .insert(Transform::from_xyz(0., 0.75, 0.))
+        .insert(Msaa::Off)
         .insert(ScreenSpaceAmbientOcclusion {
             quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
             ..Default::default()
         })
-        .insert(Msaa::Off)
+        .insert(SkyBoxAttachment)
+        .insert(Transform::from_xyz(0., 0.75, 0.))
         .id();
 
     let crosshair = commands
@@ -107,7 +108,7 @@ fn player_look(
         -mouse.delta.x * player_query.look_speed * window.scale_factor(),
         -mouse.delta.y * player_query.look_speed * window.scale_factor(),
     ];
-    let (yaw, pitch, _) = cam_query.rotation.to_euler(EulerRot::YXZ);
+    let (yaw, pitch, ..) = cam_query.rotation.to_euler(EulerRot::YXZ);
 
     cam_query.rotation = Quat::from_euler(
         EulerRot::YXZ,
@@ -159,6 +160,7 @@ fn player_move(
 
 fn player_interact(
     mut break_events: EventWriter<BlockBreakEvent>,
+    mut place_events: EventWriter<BlockPlaceEvent>,
     player_transform: Single<&GlobalTransform, With<PlayerCamera>>,
     player_collider: Single<Entity, With<Player>>,
     context: ReadRapierContext,
@@ -177,11 +179,18 @@ fn player_interact(
         true,
         QueryFilter::new().exclude_collider(player_collider.into_inner()),
     ) {
-        let (_, hit) = ray_hit;
+        let (.., hit) = ray_hit;
 
         let break_pos = (hit.point - hit.normal * VOXEL_SIZE / 100.).as_ivec3();
+        let place_pos = (hit.point + hit.normal * VOXEL_SIZE / 100.).as_ivec3();
         if mouse.just_pressed(MouseButton::Left) {
-            break_events.write(BlockBreakEvent { block: break_pos });
+            break_events.write(BlockBreakEvent { position: break_pos });
+        }
+        if mouse.just_pressed(MouseButton::Right) {
+            place_events.write(BlockPlaceEvent {
+                position: place_pos,
+                species: Voxel::Full(BlockType::_Wood),
+            });
         }
     }
 }
