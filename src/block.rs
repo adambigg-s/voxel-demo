@@ -94,9 +94,9 @@ impl BlockType {
                 sid: UVec2::new(2, 4),
             },
             | Self::Leaf => BlockTexture {
-                top: UVec2::new(6, 4),
-                bot: UVec2::new(6, 4),
-                sid: UVec2::new(6, 4),
+                top: UVec2::new(7, 4),
+                bot: UVec2::new(7, 4),
+                sid: UVec2::new(7, 4),
             },
             | Self::Stone => BlockTexture {
                 top: UVec2::new(13, 1),

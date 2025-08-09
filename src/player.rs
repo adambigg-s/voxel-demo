@@ -1,6 +1,7 @@
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel;
+use bevy::pbr::ScreenSpaceAmbientOcclusionResources;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
@@ -9,7 +10,14 @@ use crate::block::BlockType;
 use crate::block::Voxel;
 use crate::block::get_block;
 use crate::config::blocks::VOXEL_SIZE;
+use crate::config::keys::CYCLE_BLOCK_DOWN;
+use crate::config::keys::CYCLE_BLOCK_UP;
+use crate::config::keys::JUMP;
 use crate::config::keys::PLAYER_RESET;
+use crate::config::keys::WALK_BAC;
+use crate::config::keys::WALK_FOR;
+use crate::config::keys::WALK_LEF;
+use crate::config::keys::WALK_RIG;
 use crate::config::player::BLOCK_REACH;
 use crate::skybox::SkyBoxAttachment;
 use crate::skybox::SkyBoxPlugin;
@@ -38,7 +46,7 @@ struct PlayerUI;
 fn player_block_ui(mut commands: Commands) {
     commands
         .spawn(PlayerUI)
-        .insert(Text::from("sand"))
+        .insert(Text::from(String::from(BlockType::Grass)))
         .insert(TextFont { font_size: 15., ..Default::default() })
         .insert(TextColor::BLACK)
         .insert(Node {
@@ -87,7 +95,7 @@ fn player_setup(
             jump_velocity: 7.5,
             gravity: 25.,
         })
-        .insert(Mesh3d(meshes.add(Capsule3d::new(0.3, 1.5))))
+        .insert(Mesh3d(meshes.add(Capsule3d::new(0.4, 1.5))))
         .insert(MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0., 1., 1.)))))
         .insert(KinematicCharacterController::default())
         .insert(KinematicCharacterControllerOutput::default())
@@ -108,7 +116,7 @@ fn player_setup(
             ..Default::default()
         })
         .insert(SkyBoxAttachment)
-        .insert(Transform::from_xyz(0., 0.9, 0.))
+        .insert(Transform::from_xyz(0., 0.8, 0.))
         .id();
 
     commands
@@ -164,11 +172,11 @@ fn player_move(
 
     let mut movement = Vec3::ZERO;
     for key in keys.get_pressed() {
-        match key {
-            | KeyCode::KeyW => movement += front,
-            | KeyCode::KeyS => movement -= front,
-            | KeyCode::KeyD => movement += right,
-            | KeyCode::KeyA => movement -= right,
+        match *key {
+            | WALK_FOR => movement += front,
+            | WALK_BAC => movement -= front,
+            | WALK_RIG => movement += right,
+            | WALK_LEF => movement -= right,
             | _ => {}
         }
     }
@@ -178,7 +186,7 @@ fn player_move(
     if control_output.grounded && vertical_velocity.value.is_sign_negative() {
         vertical_velocity.value = 0.;
     }
-    if keys.pressed(KeyCode::Space) && control_output.grounded && vertical_velocity.value < 0.5 {
+    if keys.pressed(JUMP) && control_output.grounded && vertical_velocity.value < 0.5 {
         vertical_velocity.value = player.jump_velocity;
     }
 
@@ -223,11 +231,11 @@ fn player_interact(
 }
 
 fn player_block_select(mut block: Single<&mut BlockSelection>, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(KeyCode::KeyR) {
+    if keys.just_pressed(CYCLE_BLOCK_UP) {
         block.index = block.index.wrapping_add(1);
         block.block = get_block(block.index);
     }
-    if keys.just_pressed(KeyCode::KeyF) {
+    if keys.just_pressed(CYCLE_BLOCK_DOWN) {
         block.index = block.index.wrapping_sub(1);
         block.block = get_block(block.index);
     }

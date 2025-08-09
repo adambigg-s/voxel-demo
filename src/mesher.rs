@@ -50,7 +50,8 @@ impl Quad {
 
     fn texture_uvs(&self) -> [Vec2; 4] {
         const STEP: f32 = TEXTURE_SIZE as f32 / ATLAS_SIZE as f32;
-        const TEX_EPS: f32 = 1. / TEXTURE_SIZE as f32;
+        const TEX_EPS: f32 = 0. / TEXTURE_SIZE as f32;
+        // const TEX_EPS: f32 = 1. / TEXTURE_SIZE as f32;
 
         let Voxel::Full(block) = self.block
         else {
