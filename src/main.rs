@@ -6,32 +6,25 @@ mod player;
 mod skybox;
 mod world;
 
-use bevy::image::ImageSamplerDescriptor;
-use bevy::prelude::*;
+use bevy::{image::ImageSamplerDescriptor, prelude::*};
 
 use bevy_rapier3d::prelude::*;
 
-use player::PlayerCamera;
 use rand::random_bool;
 
 use noise::{NoiseFn, Perlin};
 
-use bevy_plugins::camera::CameraPlugin;
-use bevy_plugins::window::WindowManagerPlugin;
+use bevy_plugins::{camera::CameraPlugin, window::WindowManagerPlugin};
 
-use block::BlockType;
-use block::Voxel;
+use block::{BlockType, Voxel};
 use chunk::Chunk;
-use config::blocks::CHUNK_SIZE;
-use config::blocks::TRI_COLLIDER_MESH;
-use config::keys::CAMERA_CYCLE;
-use config::keys::RAPIER_RENDER;
-use mesher::build_mesh;
-use mesher::generate_mesh;
-use player::PlayerPlugin;
-use world::ChunkMarker;
-use world::WorldChunks;
-use world::WorldChunksPlugin;
+use config::{
+    blocks::{CHUNK_SIZE, TRI_COLLIDER_MESH},
+    keys::{CAMERA_CYCLE, RAPIER_RENDER},
+};
+use mesher::{build_mesh, generate_mesh};
+use player::{PlayerCamera, PlayerPlugin};
+use world::{ChunkMarker, WorldChunks, WorldChunksPlugin};
 
 fn main() {
     App::new()
@@ -64,7 +57,6 @@ fn voxel_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let textures: Handle<Image> = asset_server.load("atlas.png");
     let mut chunk = Chunk::default();
     let perlinoc0 = Perlin::new(59930133);
     let perlinoc1 = Perlin::new(3930303);
@@ -82,28 +74,29 @@ fn voxel_setup(
                 if j == height {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Grass);
                 }
-                else if random_bool(0.04) {
-                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
-                }
-                else if j > height.saturating_sub(4) {
+                else if j > height.saturating_sub(3) {
                     chunk.voxels[i][j][k] = Voxel::Full(BlockType::Dirt);
                 }
+                else if random_bool(0.05) {
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Coal);
+                }
                 else {
-                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Sand);
+                    chunk.voxels[i][j][k] = Voxel::Full(BlockType::Stone);
                 }
             }
         }
     }
     world.chunks = Some(chunk);
 
+    let textures: Handle<Image> = asset_server.load("texture_atlas.png");
     let chunk_mesh = generate_mesh(world.chunks.as_ref().expect("failed to insert chunk"));
     let mesh = build_mesh(&chunk_mesh);
     commands
         .spawn(Mesh3d(meshes.add(mesh.clone())))
         .insert(MeshMaterial3d(materials.add(StandardMaterial {
             base_color_texture: Some(textures.clone()),
-            perceptual_roughness: 1.,
-            reflectance: 0.03,
+            perceptual_roughness: 0.9,
+            reflectance: 0.001,
             cull_mode: None,
             ..Default::default()
         })))
@@ -119,7 +112,7 @@ fn voxel_setup(
         .spawn(DirectionalLight {
             color: Color::srgb(1., 0.9, 0.9),
             shadows_enabled: true,
-            illuminance: 50000.,
+            illuminance: 30000.,
             ..Default::default()
         })
         .insert(Transform::default().looking_at(Vec3::new(0.5, -2., 1.), Vec3::Y));

@@ -25,12 +25,10 @@ fn skybox_setup(
 ) {
     commands
         .spawn(SkyBox)
-        .insert(Mesh3d(meshes.add(Cuboid::new(500., 500., 500.))))
+        .insert(Mesh3d(meshes.add(Cuboid::new(1500., 1500., 1500.))))
         .insert(MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::srgb(1., 1., 1.),
-            base_color_texture: Some(asset_server.load("sky.png")),
+            base_color_texture: Some(asset_server.load("sky_side.png")),
             emissive: Color::srgb(100., 100., 100.).into(),
-            double_sided: true,
             cull_mode: None,
             unlit: true,
             ..Default::default()

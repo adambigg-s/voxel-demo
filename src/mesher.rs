@@ -175,5 +175,7 @@ pub fn build_mesh(mesh: &[Quad]) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, nor);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
 
+    mesh.generate_tangents().expect("failed to autogen mesh tangents");
+
     mesh
 }

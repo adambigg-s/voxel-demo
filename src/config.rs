@@ -15,8 +15,8 @@ pub mod blocks {
 }
 
 pub mod aesthetics {
-    pub const ATLAS_SIZE: usize = 320;
-    pub const TEXTURE_SIZE: usize = 32;
+    pub const ATLAS_SIZE: usize = 256;
+    pub const TEXTURE_SIZE: usize = 16;
 }
 
 pub mod keys {

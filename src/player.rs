@@ -91,7 +91,7 @@ fn player_setup(
         .insert(MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::srgb(0., 1., 1.)))))
         .insert(KinematicCharacterController::default())
         .insert(KinematicCharacterControllerOutput::default())
-        .insert(Collider::cuboid(0.3, 0.75, 0.3))
+        .insert(Collider::cuboid(0.3, 0.95, 0.3))
         .insert(RigidBody::KinematicPositionBased)
         .insert(LockedAxes::ROTATION_LOCKED)
         .insert(VerticalVelocity::default())
@@ -108,7 +108,7 @@ fn player_setup(
             ..Default::default()
         })
         .insert(SkyBoxAttachment)
-        .insert(Transform::from_xyz(0., 0.75, 0.))
+        .insert(Transform::from_xyz(0., 0.9, 0.))
         .id();
 
     commands
@@ -211,8 +211,8 @@ fn player_interact(
     ) {
         let (.., hit) = ray_hit;
 
-        let break_pos = (hit.point - hit.normal * VOXEL_SIZE / 100.).as_ivec3();
-        let place_pos = (hit.point + hit.normal * VOXEL_SIZE / 100.).as_ivec3();
+        let break_pos = (hit.point / VOXEL_SIZE - hit.normal * VOXEL_SIZE / 100.).as_ivec3();
+        let place_pos = (hit.point / VOXEL_SIZE + hit.normal * VOXEL_SIZE / 100.).as_ivec3();
         if mouse.just_pressed(MouseButton::Left) {
             break_events.write(BlockBreakEvent { position: break_pos });
         }

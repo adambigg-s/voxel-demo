@@ -19,9 +19,8 @@ pub enum Voxel {
 impl From<Voxel> for String {
     fn from(val: Voxel) -> Self {
         match val {
-            | Voxel::Empty => unreachable!("player can't select this"),
             | Voxel::Full(block) => String::from(block),
-            | Voxel::_Semi(_) => todo!(),
+            | _ => todo!("these blocks don't even exist yet"),
         }
     }
 }
@@ -33,14 +32,22 @@ pub enum BlockType {
     Sand,
     Wood,
     Leaf,
+    Stone,
+    Plank,
+    Coal,
+    Water,
 }
 
-pub const BLOCKS: [Voxel; 5] = [
+pub const BLOCKS: [Voxel; 9] = [
     Voxel::Full(BlockType::Grass),
     Voxel::Full(BlockType::Dirt),
     Voxel::Full(BlockType::Sand),
     Voxel::Full(BlockType::Wood),
     Voxel::Full(BlockType::Leaf),
+    Voxel::Full(BlockType::Stone),
+    Voxel::Full(BlockType::Plank),
+    Voxel::Full(BlockType::Coal),
+    Voxel::Full(BlockType::Water),
 ];
 
 pub fn get_block(index: usize) -> Voxel {
@@ -55,6 +62,10 @@ impl From<BlockType> for String {
             | BlockType::Sand => String::from("sand"),
             | BlockType::Wood => String::from("wood"),
             | BlockType::Leaf => String::from("leaf"),
+            | BlockType::Stone => String::from("stone"),
+            | BlockType::Plank => String::from("plank"),
+            | BlockType::Coal => String::from("Coal"),
+            | BlockType::Water => String::from("water"),
         }
     }
 }
@@ -63,29 +74,49 @@ impl BlockType {
     pub const fn texture(&self) -> BlockTexture {
         match self {
             | Self::Grass => BlockTexture {
-                top: UVec2::new(0, 0),
-                bot: UVec2::new(2, 0),
-                sid: UVec2::new(1, 0),
+                top: UVec2::new(4, 4),
+                bot: UVec2::new(1, 1),
+                sid: UVec2::new(4, 1),
             },
             | Self::Dirt => BlockTexture {
-                top: UVec2::new(2, 0),
-                bot: UVec2::new(2, 0),
-                sid: UVec2::new(2, 0),
+                top: UVec2::new(1, 1),
+                bot: UVec2::new(1, 1),
+                sid: UVec2::new(1, 1),
             },
             | Self::Sand => BlockTexture {
-                top: UVec2::new(3, 0),
-                bot: UVec2::new(3, 0),
-                sid: UVec2::new(3, 0),
+                top: UVec2::new(10, 1),
+                bot: UVec2::new(10, 1),
+                sid: UVec2::new(10, 1),
             },
             | Self::Wood => BlockTexture {
-                top: UVec2::new(4, 0),
-                bot: UVec2::new(4, 0),
-                sid: UVec2::new(4, 0),
+                top: UVec2::new(2, 7),
+                bot: UVec2::new(2, 7),
+                sid: UVec2::new(2, 4),
             },
             | Self::Leaf => BlockTexture {
-                top: UVec2::new(9, 9),
-                bot: UVec2::new(9, 9),
-                sid: UVec2::new(9, 9),
+                top: UVec2::new(6, 4),
+                bot: UVec2::new(6, 4),
+                sid: UVec2::new(6, 4),
+            },
+            | Self::Stone => BlockTexture {
+                top: UVec2::new(13, 1),
+                bot: UVec2::new(13, 1),
+                sid: UVec2::new(13, 1),
+            },
+            | Self::Plank => BlockTexture {
+                top: UVec2::new(10, 4),
+                bot: UVec2::new(10, 4),
+                sid: UVec2::new(10, 4),
+            },
+            | Self::Coal => BlockTexture {
+                top: UVec2::new(13, 4),
+                bot: UVec2::new(13, 4),
+                sid: UVec2::new(13, 4),
+            },
+            | Self::Water => BlockTexture {
+                top: UVec2::new(7, 1),
+                bot: UVec2::new(7, 1),
+                sid: UVec2::new(7, 1),
             },
         }
     }
