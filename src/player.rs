@@ -1,7 +1,6 @@
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::pbr::ScreenSpaceAmbientOcclusion;
 use bevy::pbr::ScreenSpaceAmbientOcclusionQualityLevel;
-use bevy::pbr::ScreenSpaceAmbientOcclusionResources;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
@@ -29,6 +28,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(SkyBoxPlugin);
+        app.init_resource::<BlockSelection>();
         app.add_systems(Startup, player_setup);
         app.add_systems(Startup, player_block_ui);
         app.add_systems(Update, player_block_ui_update);
@@ -40,40 +40,13 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-#[derive(Component)]
-struct PlayerUI;
-
-fn player_block_ui(mut commands: Commands) {
-    commands
-        .spawn(PlayerUI)
-        .insert(Text::from(String::from(BlockType::Grass)))
-        .insert(TextFont { font_size: 15., ..Default::default() })
-        .insert(TextColor::BLACK)
-        .insert(Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(5.),
-            left: Val::Px(10.),
-            ..Default::default()
-        });
-}
-
-fn player_block_ui_update(text: Single<&mut Text, With<PlayerUI>>, block: Single<&BlockSelection>) {
-    *text.into_inner() = Text::from(String::from(block.block));
-}
-
 #[derive(Default, Component)]
 struct VerticalVelocity {
     value: f32,
 }
 
 #[derive(Component)]
-struct BlockSelection {
-    block: Voxel,
-    index: usize,
-}
-
-#[derive(Component)]
-struct Player {
+pub struct Player {
     speed: f32,
     look_speed: f32,
     jump_velocity: f32,
@@ -131,8 +104,6 @@ fn player_setup(
         });
 
     commands.entity(player_collider).add_child(player_camera);
-
-    commands.spawn(BlockSelection { block: Voxel::Full(BlockType::Wood), index: 0 });
 }
 
 fn player_look(
@@ -200,7 +171,7 @@ fn player_interact(
     mut place_events: EventWriter<BlockPlaceEvent>,
     player_transform: Single<&GlobalTransform, With<PlayerCamera>>,
     player_collider: Single<Entity, With<Player>>,
-    player_block: Single<&BlockSelection>,
+    player_block: Res<BlockSelection>,
     context: ReadRapierContext,
     mouse: Res<ButtonInput<MouseButton>>,
 ) {
@@ -219,8 +190,9 @@ fn player_interact(
     ) {
         let (.., hit) = ray_hit;
 
-        let break_pos = (hit.point / VOXEL_SIZE - hit.normal * VOXEL_SIZE / 100.).as_ivec3();
-        let place_pos = (hit.point / VOXEL_SIZE + hit.normal * VOXEL_SIZE / 100.).as_ivec3();
+        let break_pos = (hit.point / VOXEL_SIZE - hit.normal * VOXEL_SIZE / 100.).floor().as_ivec3();
+        let place_pos = (hit.point / VOXEL_SIZE + hit.normal * VOXEL_SIZE / 100.).floor().as_ivec3();
+
         if mouse.just_pressed(MouseButton::Left) {
             break_events.write(BlockBreakEvent { position: break_pos });
         }
@@ -230,7 +202,21 @@ fn player_interact(
     }
 }
 
-fn player_block_select(mut block: Single<&mut BlockSelection>, keys: Res<ButtonInput<KeyCode>>) {
+fn player_reset(mut query: Query<&mut Transform, With<Player>>, keys: Res<ButtonInput<KeyCode>>) {
+    if keys.just_pressed(PLAYER_RESET) {
+        for mut transform in &mut query {
+            *transform = transform.with_translation(Vec3::new(3., 20., 3.));
+        }
+    }
+}
+
+#[derive(Default, Resource)]
+struct BlockSelection {
+    block: Voxel,
+    index: usize,
+}
+
+fn player_block_select(mut block: ResMut<BlockSelection>, keys: Res<ButtonInput<KeyCode>>) {
     if keys.just_pressed(CYCLE_BLOCK_UP) {
         block.index = block.index.wrapping_add(1);
         block.block = get_block(block.index);
@@ -241,10 +227,23 @@ fn player_block_select(mut block: Single<&mut BlockSelection>, keys: Res<ButtonI
     }
 }
 
-fn player_reset(mut query: Query<&mut Transform, With<Player>>, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(PLAYER_RESET) {
-        for mut transform in &mut query {
-            *transform = transform.with_translation(Vec3::new(3., 20., 3.));
-        }
-    }
+#[derive(Component)]
+struct PlayerUI;
+
+fn player_block_ui(mut commands: Commands) {
+    commands
+        .spawn(PlayerUI)
+        .insert(Text::from(String::from(BlockType::default())))
+        .insert(TextFont { font_size: 15., ..Default::default() })
+        .insert(TextColor::BLACK)
+        .insert(Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.),
+            left: Val::Px(10.),
+            ..Default::default()
+        });
+}
+
+fn player_block_ui_update(text: Single<&mut Text, With<PlayerUI>>, block: ResMut<BlockSelection>) {
+    *text.into_inner() = Text::from(String::from(block.block));
 }

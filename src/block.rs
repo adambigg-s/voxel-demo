@@ -16,6 +16,12 @@ pub enum Voxel {
     _Semi(BlockType),
 }
 
+impl Default for Voxel {
+    fn default() -> Self {
+        Self::Full(BlockType::default())
+    }
+}
+
 impl From<Voxel> for String {
     fn from(val: Voxel) -> Self {
         match val {
@@ -36,6 +42,12 @@ pub enum BlockType {
     Plank,
     Coal,
     Water,
+}
+
+impl Default for BlockType {
+    fn default() -> Self {
+        Self::Grass
+    }
 }
 
 pub const BLOCKS: [Voxel; 9] = [

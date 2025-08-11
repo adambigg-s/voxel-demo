@@ -2,11 +2,11 @@
 struct _FooBar;
 
 pub mod world {
-    pub const RENDER_DISTANCE: usize = 3;
+    pub const RENDER_DISTANCE: usize = 16;
 }
 
 pub mod blocks {
-    pub const CHUNK_SIZE: usize = 32;
+    pub const CHUNK_SIZE: usize = 16;
     pub const VOXEL_SIZE: f32 = 1.;
     pub const TRI_COLLIDER_MESH: bevy_rapier3d::prelude::ComputedColliderShape =
         bevy_rapier3d::prelude::ComputedColliderShape::TriMesh(
@@ -17,6 +17,11 @@ pub mod blocks {
 pub mod aesthetics {
     pub const ATLAS_SIZE: usize = 256;
     pub const TEXTURE_SIZE: usize = 16;
+    pub const SKYBOX_SIZE: f32 = 2000.;
+    pub const SUN_COLOR: bevy::color::Color = bevy::color::Color::srgb(1., 0.9, 0.9);
+    pub const AMBIENT_COLOR: bevy::color::Color = bevy::color::Color::srgb(1., 0.75, 0.75);
+    pub const SUN_STRENGTH: f32 = 30000.;
+    pub const AMBIENT_STRENGTH: f32 = 750.;
 }
 
 pub mod keys {
@@ -33,5 +38,5 @@ pub mod keys {
 }
 
 pub mod player {
-    pub const BLOCK_REACH: f32 = 5.;
+    pub const BLOCK_REACH: f32 = 7.5;
 }
