@@ -9,14 +9,17 @@ use crate::block::BlockType;
 use crate::block::Voxel;
 use crate::block::get_block;
 use crate::config::blocks::VOXEL_SIZE;
+use crate::config::keys::CAMERA_CYCLE;
 use crate::config::keys::CYCLE_BLOCK_DOWN;
 use crate::config::keys::CYCLE_BLOCK_UP;
 use crate::config::keys::JUMP;
 use crate::config::keys::PLAYER_RESET;
 use crate::config::keys::WALK_BAC;
+use crate::config::keys::WALK_DOW;
 use crate::config::keys::WALK_FOR;
 use crate::config::keys::WALK_LEF;
 use crate::config::keys::WALK_RIG;
+use crate::config::keys::WALK_UPW;
 use crate::config::player::BLOCK_REACH;
 use crate::skybox::SkyBoxAttachment;
 use crate::skybox::SkyBoxPlugin;
@@ -31,6 +34,9 @@ impl Plugin for PlayerPlugin {
         app.init_resource::<BlockSelection>();
         app.add_systems(Startup, player_setup);
         app.add_systems(Startup, player_block_ui);
+        app.add_systems(Startup, player_flycamera_setup);
+        app.add_systems(Update, player_camera_config_swap);
+        app.add_systems(Update, player_flycamera_move);
         app.add_systems(Update, player_block_ui_update);
         app.add_systems(Update, player_block_select);
         app.add_systems(Update, player_look);
@@ -82,10 +88,10 @@ fn player_setup(
     let player_camera = commands
         .spawn(PlayerCamera)
         .insert(Camera3d::default())
-        .insert(Camera { is_active: false, ..Default::default() })
+        .insert(Camera { ..Default::default() })
         .insert(Msaa::Off)
         .insert(ScreenSpaceAmbientOcclusion {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
+            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
             ..Default::default()
         })
         .insert(SkyBoxAttachment)
@@ -104,6 +110,61 @@ fn player_setup(
         });
 
     commands.entity(player_collider).add_child(player_camera);
+}
+
+#[derive(Component)]
+struct FlyCamera;
+
+fn player_flycamera_setup(mut commands: Commands) {
+    commands.spawn(FlyCamera).insert(Transform::default());
+}
+
+fn player_camera_config_swap(
+    mut commands: Commands,
+    player_collider: Single<(Entity, Option<&Children>), With<Player>>,
+    flycamera: Single<Entity, (With<FlyCamera>, Without<Player>)>,
+    camera: Single<Entity, With<PlayerCamera>>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    if keys.just_pressed(CAMERA_CYCLE) {
+        let (player, player_children) = *player_collider;
+        let flycam = *flycamera;
+
+        if player_children.map(|child| child.iter().any(|child| child == *camera)).unwrap_or(false) {
+            commands.entity(player).remove_children(&[*camera]);
+            commands.entity(flycam).add_child(*camera);
+        }
+        else {
+            commands.entity(flycam).remove_children(&[*camera]);
+            commands.entity(player).add_child(*camera);
+        }
+    }
+}
+
+fn player_flycamera_move(
+    mut player: Single<&mut Transform, With<FlyCamera>>,
+    look: Single<&Transform, (With<PlayerCamera>, Without<FlyCamera>)>,
+    player_config: Single<&Player, Without<Children>>,
+    keys: Res<ButtonInput<KeyCode>>,
+) {
+    let front = look.forward().normalize();
+    let right = look.right().normalize();
+    let up = look.up().normalize();
+    let mut translation = Vec3::ZERO;
+
+    for key in keys.get_pressed() {
+        match *key {
+            | WALK_FOR => translation += front,
+            | WALK_BAC => translation -= front,
+            | WALK_RIG => translation += right,
+            | WALK_LEF => translation -= right,
+            | WALK_UPW => translation += up,
+            | WALK_DOW => translation -= up,
+            | _ => {}
+        }
+    }
+
+    player.translation += translation * player_config.speed;
 }
 
 fn player_look(

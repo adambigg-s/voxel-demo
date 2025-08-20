@@ -7,6 +7,7 @@ use bevy_rapier3d::prelude::RigidBody;
 use noise::NoiseFn;
 use noise::Perlin;
 use rand::random_bool;
+use rand::random_range;
 
 use crate::block::BlockType;
 use crate::block::Voxel;
@@ -15,7 +16,7 @@ use crate::config::blocks::CHUNK_SIZE;
 use crate::config::blocks::TRI_COLLIDER_MESH;
 use crate::config::world::RENDER_DISTANCE;
 use crate::mesher::build_mesh;
-use crate::mesher::generate_mesh;
+use crate::mesher::generate_opaque_mesh;
 use crate::player::Player;
 
 pub struct WorldChunksPlugin;
@@ -27,7 +28,7 @@ impl Plugin for WorldChunksPlugin {
         app.init_resource::<TerrainNoise>();
         app.add_event::<BlockBreakEvent>();
         app.add_event::<BlockPlaceEvent>();
-        app.add_systems(Startup, chunk_startup_load);
+        app.add_systems(Startup, chunk_resouce_setup);
         app.add_systems(Update, chunk_block_break);
         app.add_systems(Update, chunk_block_place);
         app.add_systems(Update, chunk_load_manager);
@@ -42,7 +43,8 @@ struct TerrainNoise {
 
 #[derive(Resource, Default)]
 struct BlockMaterial {
-    material: Handle<StandardMaterial>,
+    opaque_material: Handle<StandardMaterial>,
+    transparent_material: Handle<StandardMaterial>,
 }
 
 #[derive(Debug, Component)]
@@ -66,49 +68,29 @@ pub struct BlockPlaceEvent {
     pub species: Voxel,
 }
 
-fn chunk_startup_load(
-    mut commands: Commands,
-    mut world: ResMut<WorldChunks>,
-    mut meshes: ResMut<Assets<Mesh>>,
+fn chunk_resouce_setup(
     mut block_material: ResMut<BlockMaterial>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    terrain_noise: Res<TerrainNoise>,
+    mut terrain_noise: ResMut<TerrainNoise>,
     asset_server: Res<AssetServer>,
 ) {
-    let textures: Handle<Image> = asset_server.load("texture_atlas.png");
-    let material = materials.add(StandardMaterial {
-        base_color_texture: Some(textures.clone()),
-        perceptual_roughness: 0.9,
-        reflectance: 0.001,
+    block_material.opaque_material = materials.add(StandardMaterial {
+        base_color_texture: Some(asset_server.load("texture_atlas.png")),
+        perceptual_roughness: 0.95,
+        reflectance: 0.003,
         cull_mode: None,
         ..Default::default()
     });
-    block_material.material = material;
+    block_material.transparent_material = materials.add(StandardMaterial {
+        base_color_texture: Some(asset_server.load("texture_atlas_transparent.png")),
+        perceptual_roughness: 0.95,
+        reflectance: 0.003,
+        cull_mode: None,
+        alpha_mode: AlphaMode::Add,
+        ..Default::default()
+    });
 
-    for x in -(RENDER_DISTANCE as isize)..=RENDER_DISTANCE as isize {
-        for z in -(RENDER_DISTANCE as isize)..=RENDER_DISTANCE as isize {
-            let chunk_pos = IVec3::new(x as i32, 0, z as i32);
-
-            let chunk = generate_chunk(chunk_pos, &terrain_noise);
-
-            let mesh_builder = generate_mesh(&chunk);
-            let mesh = build_mesh(&mesh_builder);
-            let collider = Collider::from_bevy_mesh(&mesh, &TRI_COLLIDER_MESH)
-                .expect("failed to generate rapier collider for chunk mesh");
-            let transform =
-                Transform::from_xyz(x as f32 * CHUNK_SIZE as f32, 0., z as f32 * CHUNK_SIZE as f32);
-
-            world.chunks.insert(chunk_pos, chunk);
-
-            commands
-                .spawn(ChunkMarker { location: chunk_pos })
-                .insert(Mesh3d(meshes.add(mesh)))
-                .insert(MeshMaterial3d(block_material.material.clone()))
-                .insert(collider)
-                .insert(RigidBody::Fixed)
-                .insert(transform);
-        }
-    }
+    terrain_noise.noise = Perlin::new(2293);
 }
 
 fn generate_chunk(position: IVec3, noise: &TerrainNoise) -> Chunk {
@@ -123,15 +105,16 @@ fn generate_chunk(position: IVec3, noise: &TerrainNoise) -> Chunk {
             ];
             let height_float = noise.get([i / 315., k / 315.]).abs() * CHUNK_SIZE as f64 / 2.
                 + noise.get([i / 100., k / 100.]).abs() * CHUNK_SIZE as f64 / 2.
-                + noise.get([i / 32., k / 32.]).abs() * CHUNK_SIZE as f64 / 4.
+                + noise.get([i / 32., k / 32.]).abs().powi(2) * CHUNK_SIZE as f64 / 3.
                 + noise.get([i / 16., k / 16.]).abs() * CHUNK_SIZE as f64 / 8.;
 
             let height = (height_float as usize).min(CHUNK_SIZE - 1);
+            let dirt_height = random_range(1..=3);
             for local_y in 0..=height {
                 if local_y == height {
                     chunk.voxels[local_z][local_y][local_x] = Voxel::Full(BlockType::Grass);
                 }
-                else if local_y > height.saturating_sub(3) {
+                else if local_y > height.saturating_sub(dirt_height) {
                     chunk.voxels[local_z][local_y][local_x] = Voxel::Full(BlockType::Dirt);
                 }
                 else if random_bool(0.05) {
@@ -139,6 +122,12 @@ fn generate_chunk(position: IVec3, noise: &TerrainNoise) -> Chunk {
                 }
                 else {
                     chunk.voxels[local_z][local_y][local_x] = Voxel::Full(BlockType::Stone);
+                }
+            }
+
+            for local_y in 0..4 {
+                if chunk.voxels[local_z][local_y][local_x] == Voxel::Empty {
+                    chunk.voxels[local_z][local_y][local_x] = Voxel::Semi(BlockType::Water);
                 }
             }
         }
@@ -212,7 +201,7 @@ fn chunk_mesh_rebuild(
                     continue;
                 }
 
-                let new_mesh = generate_mesh(chunk);
+                let new_mesh = generate_opaque_mesh(chunk);
                 let bevy_mesh = build_mesh(&new_mesh);
                 *mesh = Mesh3d(meshes.add(bevy_mesh.clone()));
                 *collider = Collider::from_bevy_mesh(&bevy_mesh, &TRI_COLLIDER_MESH)
@@ -247,7 +236,7 @@ fn chunk_load_manager(
 
             let chunk = world.chunks.get(&chunk_pos).expect("failed to insert generated chunk");
 
-            let mesh_builder = generate_mesh(chunk);
+            let mesh_builder = generate_opaque_mesh(chunk);
             let mesh = build_mesh(&mesh_builder);
             let collider = Collider::from_bevy_mesh(&mesh, &TRI_COLLIDER_MESH)
                 .expect("failed to generate rapier collider for chunk mesh");
@@ -257,7 +246,7 @@ fn chunk_load_manager(
             commands
                 .spawn(ChunkMarker { location: chunk_pos })
                 .insert(Mesh3d(meshes.add(mesh)))
-                .insert(MeshMaterial3d(block_material.material.clone()))
+                .insert(MeshMaterial3d(block_material.opaque_material.clone()))
                 .insert(collider)
                 .insert(RigidBody::Fixed)
                 .insert(transform);

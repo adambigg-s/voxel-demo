@@ -13,7 +13,7 @@ where
 pub enum Voxel {
     Empty,
     Full(BlockType),
-    _Semi(BlockType),
+    Semi(BlockType),
 }
 
 impl Default for Voxel {
@@ -26,6 +26,7 @@ impl From<Voxel> for String {
     fn from(val: Voxel) -> Self {
         match val {
             | Voxel::Full(block) => String::from(block),
+            | Voxel::Semi(block) => String::from(block),
             | _ => todo!("these blocks don't even exist yet"),
         }
     }
@@ -55,11 +56,11 @@ pub const BLOCKS: [Voxel; 9] = [
     Voxel::Full(BlockType::Dirt),
     Voxel::Full(BlockType::Sand),
     Voxel::Full(BlockType::Wood),
-    Voxel::Full(BlockType::Leaf),
+    Voxel::Semi(BlockType::Leaf),
     Voxel::Full(BlockType::Stone),
     Voxel::Full(BlockType::Plank),
     Voxel::Full(BlockType::Coal),
-    Voxel::Full(BlockType::Water),
+    Voxel::Semi(BlockType::Water),
 ];
 
 pub fn get_block(index: usize) -> Voxel {
@@ -76,14 +77,14 @@ impl From<BlockType> for String {
             | BlockType::Leaf => String::from("leaf"),
             | BlockType::Stone => String::from("stone"),
             | BlockType::Plank => String::from("plank"),
-            | BlockType::Coal => String::from("Coal"),
+            | BlockType::Coal => String::from("coal"),
             | BlockType::Water => String::from("water"),
         }
     }
 }
 
 impl BlockType {
-    pub const fn texture(&self) -> BlockTexture {
+    pub const fn texture_offset(&self) -> BlockTexture {
         match self {
             | Self::Grass => BlockTexture {
                 top: UVec2::new(4, 4),

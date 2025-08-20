@@ -51,11 +51,11 @@ impl Quad {
     fn texture_uvs(&self) -> [Vec2; 4] {
         const STEP: f32 = TEXTURE_SIZE as f32 / ATLAS_SIZE as f32;
 
-        let Voxel::Full(block) = self.block
-        else {
-            unreachable!();
+        let atlas_offset = match self.block {
+            | Voxel::Full(block) => block.texture_offset(),
+            | Voxel::Semi(block) => block.texture_offset(),
+            | Voxel::Empty => unreachable!("empty blocks should never proceed in mesher"),
         };
-        let atlas_offset = block.texture();
 
         match self.face {
             | VoxelFace::Top => [
@@ -119,7 +119,27 @@ impl Quad {
     }
 }
 
-pub fn generate_mesh(chunk: &Chunk) -> Vec<Quad> {
+pub enum _Visibility {
+    Transparent,
+    Opaque,
+}
+
+impl _Visibility {
+    fn _matches_voxel(&self, voxel: Voxel) -> bool {
+        match self {
+            | Self::Transparent => match voxel {
+                | Voxel::Semi(_) => true,
+                | _ => false,
+            },
+            | Self::Opaque => match voxel {
+                | Voxel::Full(_) => true,
+                | _ => false,
+            },
+        }
+    }
+}
+
+pub fn generate_opaque_mesh(chunk: &Chunk) -> Vec<Quad> {
     let mut output = Vec::new();
 
     for z in 0..CHUNK_SIZE {
@@ -142,6 +162,9 @@ pub fn generate_mesh(chunk: &Chunk) -> Vec<Quad> {
 
                 for (direction, neighbor) in neighbors {
                     if let Voxel::Full(_) = neighbor {
+                        continue;
+                    }
+                    else if neighbor == current {
                         continue;
                     }
 

@@ -1,13 +1,11 @@
 use bevy::image::ImageSamplerDescriptor;
 use bevy::prelude::*;
 
-use bevy_plugins::camera::CameraPlugin;
 use bevy_plugins::window::WindowManagerPlugin;
 
 use bevy_rapier3d::plugin::RapierPhysicsPlugin;
 use bevy_rapier3d::prelude::*;
 
-use crate::config::keys::CAMERA_CYCLE;
 use crate::config::keys::RAPIER_RENDER;
 use crate::player::PlayerCamera;
 use crate::player::PlayerPlugin;
@@ -20,14 +18,12 @@ impl Plugin for VoxelPlugin {
         app.add_plugins(
             DefaultPlugins.set(ImagePlugin { default_sampler: ImageSamplerDescriptor::nearest() }),
         );
-        app.add_plugins(CameraPlugin);
-        app.add_plugins(WindowManagerPlugin);
         app.add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
         app.add_plugins(RapierDebugRenderPlugin { enabled: false, ..Default::default() });
+        app.add_plugins(WindowManagerPlugin);
         app.add_plugins(PlayerPlugin);
         app.add_plugins(WorldChunksPlugin);
         app.add_systems(Update, debug_render_toggle);
-        app.add_systems(Update, debug_camera_cycle);
         app.add_systems(Update, debug_camera_fov);
     }
 }
@@ -35,14 +31,6 @@ impl Plugin for VoxelPlugin {
 fn debug_render_toggle(mut render: ResMut<DebugRenderContext>, keys: Res<ButtonInput<KeyCode>>) {
     if keys.just_pressed(RAPIER_RENDER) {
         render.enabled = !render.enabled;
-    }
-}
-
-fn debug_camera_cycle(mut query: Query<&mut Camera, With<Camera3d>>, keys: Res<ButtonInput<KeyCode>>) {
-    if keys.just_pressed(CAMERA_CYCLE) {
-        for mut camera in &mut query {
-            camera.is_active = !camera.is_active;
-        }
     }
 }
 
